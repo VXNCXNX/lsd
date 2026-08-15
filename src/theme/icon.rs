@@ -17,8 +17,13 @@ where
         ByFilename::Name => IconTheme::get_default_icons_by_name(),
         ByFilename::Extension => IconTheme::get_default_icons_by_extension(),
     };
-    HashMap::<_, _>::deserialize(deserializer)
-        .map(|input| default.into_iter().chain(input).collect())
+    // lookups are lower-cased, so user keys must be too
+    HashMap::<String, String>::deserialize(deserializer).map(|input| {
+        default
+            .into_iter()
+            .chain(input.into_iter().map(|(k, v)| (k.to_lowercase(), v)))
+            .collect()
+    })
 }
 
 fn deserialize_by_name<'de, D>(deserializer: D) -> Result<HashMap<String, String>, D::Error>
@@ -854,6 +859,22 @@ filetype:
     fn test_custom_icon_by_extension() {
         // When a user sets to use 🦀-icon for *.rs files,
         let theme: IconTheme = Theme::with_yaml("extension:\n  rs: 🦀").unwrap();
+        // 🦀-icon should be used for *.rs files.
+        assert_eq!(theme.extension.get("rs").unwrap(), "🦀");
+    }
+
+    #[test]
+    fn test_custom_icon_by_name_with_capital_letters() {
+        // When a user sets to use 📦-icon for a Cargo.toml file,
+        let theme: IconTheme = Theme::with_yaml("name:\n  Cargo.toml: 📦").unwrap();
+        // 📦-icon should be used for a cargo.toml file.
+        assert_eq!(theme.name.get("cargo.toml").unwrap(), "📦");
+    }
+
+    #[test]
+    fn test_custom_icon_by_extension_with_capital_letters() {
+        // When a user sets to use 🦀-icon for *.RS files,
+        let theme: IconTheme = Theme::with_yaml("extension:\n  RS: 🦀").unwrap();
         // 🦀-icon should be used for *.rs files.
         assert_eq!(theme.extension.get("rs").unwrap(), "🦀");
     }
